@@ -29,16 +29,11 @@ loginForm.addEventListener("submit", async function (event) {
         const data = await response.json();
 
         if (response.ok) {
-
-            // Logged-in user information save
-            localStorage.setItem(
-                "user",
-                JSON.stringify(data.user)
-            );
+            // Save user info and JWT token
+            localStorage.setItem("user", JSON.stringify(data.user));
+            localStorage.setItem("token", data.token); // <-- ADD THIS LINE
 
             message.textContent = "Login successful!";
-
-            // Go to dashboard
             window.location.href = "dashboard.html";
 
         } else {

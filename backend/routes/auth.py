@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify
+import jwt
+from flask import Blueprint, request, jsonify, current_app
 
 from werkzeug.security import (
     generate_password_hash,
@@ -102,6 +103,16 @@ def login():
         }), 401
 
     # =====================================
+    # GENERATE JWT TOKEN
+    # =====================================
+    
+    # Create a token that expires in 24 hours
+    token = jwt.encode({
+        'email': user['email'],
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+    }, current_app.config['SECRET_KEY'], algorithm="HS256")
+
+    # =====================================
     # SEND LOGIN CONFIRMATION EMAIL
     # =====================================
 
@@ -160,6 +171,8 @@ RoboDog Team
     return jsonify({
 
         "message": "Login successful",
+        
+        "token": token, # <--- TOKEN INCLUDED HERE
 
         "user": {
             "name": user["name"],
@@ -170,7 +183,7 @@ RoboDog Team
 
 
 # =====================================
-# FORGOT PASSWORD - SEND OTP
+# FOR সাংস্কৃতিক PASSWORD - SEND OTP
 # =====================================
 
 @auth_bp.route(

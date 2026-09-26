@@ -61,6 +61,9 @@ function showControlMessage(command) {
 
 async function sendRobotCommand(command) {
 
+    // Retrieve the secure token saved during login
+    const token = localStorage.getItem("token");
+
     try {
 
         const response = await fetch(
@@ -68,7 +71,8 @@ async function sendRobotCommand(command) {
             {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}` // Inject JWT token here
                 }
             }
         );
@@ -89,7 +93,15 @@ async function sendRobotCommand(command) {
 
             if (controlMessage) {
                 controlMessage.textContent =
-                    "❌ Command failed.";
+                    data.message || "❌ Command failed.";
+            }
+
+            // If token is invalid or expired, force a fresh login
+            if (response.status === 401) {
+                console.warn("Session expired or invalid. Redirecting to login.");
+                localStorage.removeItem("user");
+                localStorage.removeItem("token");
+                window.location.href = "login.html";
             }
         }
 
@@ -114,10 +126,18 @@ async function sendRobotCommand(command) {
 
 async function getRobotStatus() {
 
+    const token = localStorage.getItem("token");
+
     try {
 
         const response = await fetch(
-            `${API_URL}/status`
+            `${API_URL}/status`,
+            {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            }
         );
 
         const data = await response.json();
@@ -126,12 +146,16 @@ async function getRobotStatus() {
 
         if (response.ok) {
 
-            // IMPORTANT:
-            // Read command saved by Dashboard
-            // OR Controller
-
+            // Show command saved by backend
             showControlMessage(data.command);
 
+        } else if (response.status === 401) {
+            
+            // Handle unauthorized status on initial load
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
+            
         }
 
     } catch (error) {
@@ -254,16 +278,3 @@ if (stopBtn) {
 // =====================================
 
 getRobotStatus();
-
-
-// =====================================
-// AUTOMATIC SYNC
-// =====================================
-
-// Every 1 second Controller
-// checks the shared robot command
-
-setInterval(
-    getRobotStatus,
-    1000
-);

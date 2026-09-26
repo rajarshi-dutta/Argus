@@ -149,6 +149,9 @@ function updateDashboardRobotState(data) {
 
 async function sendRobotCommand(command) {
 
+    // Retrieve the secure token saved during login
+    const token = localStorage.getItem("token");
+
     try {
 
         const response = await fetch(
@@ -156,7 +159,8 @@ async function sendRobotCommand(command) {
             {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}` // Inject JWT token here
                 }
             }
         );
@@ -175,15 +179,26 @@ async function sendRobotCommand(command) {
 
             if (message) {
                 message.textContent =
-                    "❌ Command failed.";
+                    data.message || "❌ Command failed.";
+            }
+
+            // If token is invalid or expired, force a fresh login
+            if (response.status === 401) {
+                console.warn("Session expired or invalid. Redirecting to login.");
+                localStorage.removeItem("user");
+                localStorage.removeItem("token");
+                window.location.href = "login.html";
             }
 
             return;
         }
 
-
-        // Read shared state again
-        await getRobotStatus();
+        // Note: If you have fully implemented the WebSocket architecture, 
+        // this getRobotStatus() call is no longer necessary as the server 
+        // will automatically push the update to the UI.
+        if (typeof getRobotStatus === "function") {
+            await getRobotStatus();
+        }
 
     } catch (error) {
 
@@ -359,11 +374,6 @@ getRobotStatus();
 // =====================================
 // AUTOMATIC ROBOT STATUS SYNC
 // =====================================
-
-setInterval(
-    getRobotStatus,
-    1000
-);
 
 
 // =====================================
@@ -1385,6 +1395,3 @@ async function checkCameraStatus() {
         }
     }
 }
-
-checkCameraStatus();
-setInterval(checkCameraStatus, 5000);

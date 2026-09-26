@@ -1,98 +1,54 @@
 from flask import Flask
 from flask_cors import CORS
-from mail_config import mail
+from flask_socketio import SocketIO
+from dotenv import load_dotenv
 import os
 
-from dotenv import load_dotenv
-
+from mail_config import mail
 from database import db
 from routes.auth import auth_bp
 from routes.robot import robot_bp
 
-
-# Load .env file
 load_dotenv()
 
-
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv("JWT_SECRET", "super-secret-key")
 
+# 1. Initialize SocketIO with CORS enabled
+CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# =====================================
-# MAIL CONFIGURATION
-# =====================================
-
+# Mail Configuration
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 587
 app.config["MAIL_USE_TLS"] = True
-
 app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
 app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
-
-
 mail.init_app(app)
 
+# Register Blueprints
+app.register_blueprint(auth_bp, url_prefix="/api/auth")
+app.register_blueprint(robot_bp, url_prefix="/api/robot")
 
-# =====================================
-# CORS
-# =====================================
+# ==========================================
+# WEBSOCKET EVENT LISTENERS
+# ==========================================
 
-CORS(app)
+@socketio.on('connect')
+def handle_connect():
+    print("Client connected to WebSocket")
 
-
-# =====================================
-# REGISTER ROUTES
-# =====================================
-
-app.register_blueprint(
-    auth_bp,
-    url_prefix="/api/auth"
-)
-
-app.register_blueprint(
-    robot_bp,
-    url_prefix="/api/robot"
-)
-
-
-# =====================================
-# HOME
-# =====================================
-
-@app.route("/")
-def home():
-
-    return {
-        "message": "RoboDog Backend is Running"
-    }
-
-
-# =====================================
-# TEST DATABASE
-# =====================================
-
-@app.route("/test-db")
-def test_db():
-
-    try:
-
-        db.command("ping")
-
-        return {
-            "message": "MongoDB Connected Successfully!"
-        }
-
-    except Exception as e:
-
-        return {
-            "message": "MongoDB Connection Failed",
-            "error": str(e)
-        }, 500
-
-
-# =====================================
-# RUN SERVER
-# =====================================
+@socketio.on('camera_frame')
+def handle_camera_frame(data):
+    """Receive frame from Pi and broadcast to all connected dashboards"""
+    # Verify token to prevent unauthorized streaming
+    if data.get('token') != os.getenv("CAMERA_PUSH_TOKEN"):
+        return
+    
+    # Broadcast the base64 image to all connected frontend clients
+    socketio.emit('new_frame', {'image': data['image']}, broadcast=True)
 
 if __name__ == "__main__":
-
-    app.run(debug=True, port=5050)
+    # 2. Use socketio.run instead of app.run
+    port = int(os.environ.get("PORT", 5050))
+    socketio.run(app, host="0.0.0.0", port=port, debug=True)
