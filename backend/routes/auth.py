@@ -38,13 +38,11 @@ def register():
     email = data.get("email")
     password = data.get("password")
 
-    # Check all fields
     if not name or not email or not password:
         return jsonify({
             "message": "All fields are required"
         }), 400
 
-    # Check if email already exists
     existing_user = users_collection.find_one({
         "email": email
     })
@@ -54,17 +52,14 @@ def register():
             "message": "Email already registered"
         }), 409
 
-    # Hash password
     hashed_password = generate_password_hash(password)
 
-    # Create user
     user = {
         "name": name,
         "email": email,
         "password": hashed_password
     }
 
-    # Save user in MongoDB
     users_collection.insert_one(user)
 
     return jsonify({
@@ -84,13 +79,11 @@ def login():
     email = data.get("email")
     password = data.get("password")
 
-    # Check fields
     if not email or not password:
         return jsonify({
             "message": "Email and password are required"
         }), 400
 
-    # Find user
     user = users_collection.find_one({
         "email": email
     })
@@ -100,7 +93,6 @@ def login():
             "message": "Invalid email or password"
         }), 401
 
-    # Check password
     if not check_password_hash(
         user["password"],
         password
@@ -191,14 +183,12 @@ def forgot_password():
 
     email = data.get("email")
 
-    # Check email
     if not email:
 
         return jsonify({
             "message": "Email is required"
         }), 400
 
-    # Check user
     user = users_collection.find_one({
         "email": email
     })
@@ -300,10 +290,16 @@ RoboDog Team
 """
 
     # =====================================
-    # SEND EMAIL
+    # SEND EMAIL (now crash-safe)
     # =====================================
 
-    mail.send(msg)
+    try:
+        mail.send(msg)
+    except Exception as e:
+        print("OTP email could not be sent:", e)
+        return jsonify({
+            "message": "Could not send OTP email. Please try again later."
+        }), 500
 
     return jsonify({
 
@@ -328,17 +324,12 @@ def verify_otp():
     email = data.get("email")
     otp = data.get("otp")
 
-    # Check fields
     if not email or not otp:
 
         return jsonify({
             "message":
             "Email and OTP are required"
         }), 400
-
-    # =====================================
-    # FIND OTP
-    # =====================================
 
     reset_data = password_resets_collection.find_one({
 
@@ -348,17 +339,12 @@ def verify_otp():
 
     })
 
-    # OTP incorrect
     if not reset_data:
 
         return jsonify({
             "message":
             "Invalid OTP"
         }), 400
-
-    # =====================================
-    # CHECK OTP EXPIRY
-    # =====================================
 
     expires_at = reset_data.get(
         "expires_at"
@@ -371,7 +357,6 @@ def verify_otp():
             "OTP has expired. Please request a new OTP."
         }), 400
 
-    # Current UTC time
     current_time = (
         datetime.datetime.now(
             datetime.timezone.utc
@@ -380,7 +365,6 @@ def verify_otp():
         tzinfo=None
     )
 
-    # Check expiry
     if expires_at < current_time:
 
         password_resets_collection.delete_many({
@@ -391,10 +375,6 @@ def verify_otp():
             "message":
             "OTP has expired. Please request a new OTP."
         }), 400
-
-    # =====================================
-    # OTP CORRECT
-    # =====================================
 
     return jsonify({
 
@@ -422,7 +402,6 @@ def reset_password():
         "new_password"
     )
 
-    # Check fields
     if (
         not email
         or not otp
@@ -435,10 +414,6 @@ def reset_password():
             "Email, OTP and new password are required"
 
         }), 400
-
-    # =====================================
-    # CHECK OTP
-    # =====================================
 
     reset_data = password_resets_collection.find_one({
 
@@ -455,10 +430,6 @@ def reset_password():
             "Invalid OTP"
         }), 400
 
-    # =====================================
-    # CHECK OTP EXPIRY
-    # =====================================
-
     expires_at = reset_data.get(
         "expires_at"
     )
@@ -470,7 +441,6 @@ def reset_password():
             "OTP has expired. Please request a new OTP."
         }), 400
 
-    # Current UTC time
     current_time = (
         datetime.datetime.now(
             datetime.timezone.utc
@@ -479,7 +449,6 @@ def reset_password():
         tzinfo=None
     )
 
-    # Check expiry
     if expires_at < current_time:
 
         return jsonify({
@@ -487,17 +456,9 @@ def reset_password():
             "OTP has expired. Please request a new OTP."
         }), 400
 
-    # =====================================
-    # HASH NEW PASSWORD
-    # =====================================
-
     hashed_password = generate_password_hash(
         new_password
     )
-
-    # =====================================
-    # UPDATE PASSWORD
-    # =====================================
 
     result = users_collection.update_one(
 
@@ -514,10 +475,6 @@ def reset_password():
 
     )
 
-    # =====================================
-    # CHECK USER UPDATE
-    # =====================================
-
     if result.modified_count == 0:
 
         return jsonify({
@@ -527,22 +484,10 @@ def reset_password():
 
         }), 400
 
-    # =====================================
-    # IMPORTANT
-    # DO NOT DELETE OTP
-    # =====================================
-
-    # We are keeping the OTP record
-    # in MongoDB for testing/demo purpose.
-
     print(
         "Password reset successful for:",
         email
     )
-
-    # =====================================
-    # SUCCESS
-    # =====================================
 
     return jsonify({
 

@@ -385,12 +385,14 @@
 
 <script>
 
+const API_BASE = "https://robodog-web.onrender.com";
+
 async function loadAlerts() {
 
     try {
 
         const response = await fetch(
-            "http://127.0.0.1:5000/api/robot/alerts"
+            `${API_BASE}/api/robot/alerts`
         );
 
         const data = await response.json();

@@ -1,3 +1,5 @@
+const API_BASE = "https://robodog-web.onrender.com";
+
 const registerForm = document.getElementById("registerForm");
 
 registerForm.addEventListener("submit", async function (event) {
@@ -13,7 +15,7 @@ registerForm.addEventListener("submit", async function (event) {
     try {
 
         const response = await fetch(
-            "http://127.0.0.1:5000/api/auth/register",
+            `${API_BASE}/api/auth/register`,
             {
                 method: "POST",
 

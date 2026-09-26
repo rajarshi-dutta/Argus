@@ -1,6 +1,8 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response
 from database import alerts_collection, db
 import datetime
+import os
+import time
 
 robot_bp = Blueprint("robot", __name__)
 
@@ -397,6 +399,82 @@ def clear_alerts():
 
     return jsonify({
         "message": "All alerts cleared"
+    })
+
+
+# =====================================================
+# CAMERA FEED RELAY
+# =====================================================
+# The Pi (in Kolkata) pushes JPEG frames here with each POST.
+# The web dashboard (anywhere in the world) reads them back out
+# as an MJPEG stream. Render is the public middleman — neither
+# side needs to be reachable directly.
+
+_latest_frame_bytes = None
+_latest_frame_time = 0
+CAMERA_FRAME_TIMEOUT = 5  # seconds — feed is "offline" if no frame this recent
+
+# Simple shared-secret so randoms on the internet can't spam your frame buffer
+CAMERA_PUSH_TOKEN = os.getenv("CAMERA_PUSH_TOKEN", "change-me")
+
+
+@robot_bp.route("/camera/frame", methods=["POST"])
+def receive_camera_frame():
+    """Pi calls this repeatedly, posting raw JPEG bytes as the body."""
+    global _latest_frame_bytes, _latest_frame_time
+
+    token = request.headers.get("X-Camera-Token")
+    if token != CAMERA_PUSH_TOKEN:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    frame_bytes = request.get_data()
+
+    if not frame_bytes:
+        return jsonify({"message": "No frame data received"}), 400
+
+    _latest_frame_bytes = frame_bytes
+    _latest_frame_time = time.time()
+
+    return jsonify({"message": "Frame received"}), 200
+
+
+def _mjpeg_relay_generator():
+    """Re-serves whatever frame was most recently pushed, as MJPEG."""
+    last_sent_time = 0
+
+    while True:
+        if _latest_frame_bytes is not None and _latest_frame_time != last_sent_time:
+            last_sent_time = _latest_frame_time
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n" + _latest_frame_bytes + b"\r\n"
+            )
+
+        time.sleep(0.05)  # ~20fps max relay rate, avoids busy-looping
+
+
+@robot_bp.route("/camera/feed", methods=["GET"])
+def camera_feed():
+    """Dashboard <img> tag points here."""
+    return Response(
+        _mjpeg_relay_generator(),
+        mimetype="multipart/x-mixed-replace; boundary=frame",
+    )
+
+
+@robot_bp.route("/camera/status", methods=["GET"])
+def camera_status():
+    """Dashboard can poll this to show Online/Offline without loading the stream."""
+    is_online = (
+        _latest_frame_bytes is not None
+        and (time.time() - _latest_frame_time) < CAMERA_FRAME_TIMEOUT
+    )
+    return jsonify({
+        "online": is_online,
+        "last_frame_seconds_ago": (
+            round(time.time() - _latest_frame_time, 1)
+            if _latest_frame_time else None
+        )
     })
 
 

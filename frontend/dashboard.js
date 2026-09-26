@@ -34,7 +34,7 @@ if (savedUser) {
 // ROBODOG API
 // =====================================
 
-const API_URL = "http://127.0.0.1:5000/api/robot";
+const API_URL = "https://robodog-web.onrender.com/api/robot";
 
 
 // =====================================
@@ -1336,3 +1336,55 @@ if (logoutBtn) {
         }
     );
 }
+
+
+// =====================================
+// CAMERA FEED
+// =====================================
+
+async function checkCameraStatus() {
+
+    try {
+
+        const response = await fetch(`${API_URL}/camera/status`);
+        const data = await response.json();
+
+        const feedImg = document.getElementById("cameraFeed");
+        const statusText = document.getElementById("cameraStatus");
+
+        if (data.online) {
+
+            if (statusText) {
+                statusText.textContent = "🟢 Camera Online";
+            }
+
+            // Only (re)set the src if it's not already streaming, to
+            // avoid restarting the MJPEG connection every poll.
+            if (feedImg && !feedImg.src) {
+                feedImg.src = `${API_URL}/camera/feed`;
+            }
+
+        } else {
+
+            if (statusText) {
+                statusText.textContent = "🔴 Camera Offline";
+            }
+
+            if (feedImg) {
+                feedImg.src = "";
+            }
+        }
+
+    } catch (error) {
+
+        console.error("Camera Status Error:", error);
+
+        const statusText = document.getElementById("cameraStatus");
+        if (statusText) {
+            statusText.textContent = "🔴 Camera Offline";
+        }
+    }
+}
+
+checkCameraStatus();
+setInterval(checkCameraStatus, 5000);

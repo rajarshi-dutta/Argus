@@ -1,3 +1,5 @@
+const API_BASE = "https://robodog-web.onrender.com";
+
 const forgotPasswordForm =
     document.getElementById("forgotPasswordForm");
 
@@ -116,7 +118,7 @@ forgotPasswordForm.addEventListener(
         try {
 
             const response = await fetch(
-                "http://127.0.0.1:5000/api/auth/forgot-password",
+                `${API_BASE}/api/auth/forgot-password`,
                 {
                     method: "POST",
 
@@ -230,7 +232,7 @@ verifyOtpBtn.addEventListener(
         try {
 
             const response = await fetch(
-                "http://127.0.0.1:5000/api/auth/verify-otp",
+                `${API_BASE}/api/auth/verify-otp`,
                 {
                     method: "POST",
 
@@ -374,7 +376,7 @@ resetPasswordBtn.addEventListener(
         try {
 
             const response = await fetch(
-                "http://127.0.0.1:5000/api/auth/reset-password",
+                `${API_BASE}/api/auth/reset-password`,
                 {
                     method: "POST",
 
