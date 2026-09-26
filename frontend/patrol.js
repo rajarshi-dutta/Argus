@@ -216,37 +216,40 @@ function updateRobotLocation(
 // =====================================
 
 async function getPatrolStatus() {
+    
+    const token = localStorage.getItem("token");
 
     try {
-
         const response =
             await fetch(
-                `${API_URL}/patrol/status`
+                `${API_URL}/patrol/status`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                }
             );
 
+        const data = await response.json();
 
-        const data =
-            await response.json();
-
-
-        if (data.patrol_status === "active") {
-
-            if (patrolStatus) {
-                patrolStatus.textContent =
-                    "Active";
+        if (response.ok) {
+            if (data.patrol_status === "active") {
+                if (patrolStatus) {
+                    patrolStatus.textContent = "Active";
+                }
+            } else {
+                if (patrolStatus) {
+                    patrolStatus.textContent = "Inactive";
+                }
             }
-
-        } else {
-
-            if (patrolStatus) {
-                patrolStatus.textContent =
-                    "Inactive";
-            }
+        } else if (response.status === 401) {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
         }
 
-
     } catch (error) {
-
         console.error(
             "Patrol Status Error:",
             error
@@ -260,58 +263,46 @@ async function getPatrolStatus() {
 // =====================================
 
 async function startPatrol() {
+    
+    const token = localStorage.getItem("token");
 
     try {
-
         const response =
             await fetch(
                 `${API_URL}/patrol/start`,
                 {
                     method: "POST",
                     headers: {
-                        "Content-Type":
-                            "application/json"
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
                     }
                 }
             );
 
+        const data = await response.json();
 
-        const data =
-            await response.json();
-
-
-        console.log(
-            "Patrol Started:",
-            data
-        );
-
+        console.log("Patrol Started:", data);
 
         if (response.ok) {
-
             if (patrolStatus) {
-                patrolStatus.textContent =
-                    "Active";
+                patrolStatus.textContent = "Active";
             }
-
 
             if (patrolStarted) {
-
-                const now =
-                    new Date();
-
-                patrolStarted.textContent =
-                    now.toLocaleTimeString();
+                const now = new Date();
+                patrolStarted.textContent = now.toLocaleTimeString();
             }
 
-
             currentIndex = 0;
-
             updateStops();
 
+        } else if (response.status === 401) {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
         }
 
     } catch (error) {
-
         console.error(
             "Start Patrol Error:",
             error
@@ -325,47 +316,42 @@ async function startPatrol() {
 // =====================================
 
 async function stopPatrol() {
+    
+    const token = localStorage.getItem("token");
 
     try {
-
         const response =
             await fetch(
                 `${API_URL}/patrol/stop`,
                 {
                     method: "POST",
                     headers: {
-                        "Content-Type":
-                            "application/json"
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
                     }
                 }
             );
 
+        const data = await response.json();
 
-        const data =
-            await response.json();
-
-
-        console.log(
-            "Patrol Stopped:",
-            data
-        );
-
+        console.log("Patrol Stopped:", data);
 
         if (response.ok) {
-
             if (patrolStatus) {
-                patrolStatus.textContent =
-                    "Inactive";
+                patrolStatus.textContent = "Inactive";
             }
 
             if (patrolStarted) {
-                patrolStarted.textContent =
-                    "Stopped";
+                patrolStarted.textContent = "Stopped";
             }
+            
+        } else if (response.status === 401) {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
         }
 
     } catch (error) {
-
         console.error(
             "Stop Patrol Error:",
             error
@@ -382,64 +368,52 @@ async function goToNextStop() {
 
     if (currentIndex <
         patrolRoute.length - 1) {
-
         currentIndex++;
-
     } else {
-
         currentIndex = 0;
     }
 
-
     updateStops();
 
-
-    const current =
-        patrolRoute[currentIndex];
-
-    const nextIndex =
-        (currentIndex + 1) %
-        patrolRoute.length;
-
-    const next =
-        patrolRoute[nextIndex];
-
+    const current = patrolRoute[currentIndex];
+    const nextIndex = (currentIndex + 1) % patrolRoute.length;
+    const next = patrolRoute[nextIndex];
+    
+    const token = localStorage.getItem("token");
 
     // Send location to backend
-
     try {
-
-        await fetch(
+        const locResponse = await fetch(
             `${API_URL}/location/update`,
             {
                 method: "POST",
                 headers: {
-                    "Content-Type":
-                        "application/json"
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    latitude:
-                        current.latitude,
-
-                    longitude:
-                        current.longitude,
-
-                    location:
-                        current.name
+                    latitude: current.latitude,
+                    longitude: current.longitude,
+                    location: current.name
                 })
             }
         );
-
+        
+        if (locResponse.status === 401) {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
+            return;
+        }
 
         // Send next stop
-
         await fetch(
             `${API_URL}/next-stop/update`,
             {
                 method: "POST",
                 headers: {
-                    "Content-Type":
-                        "application/json"
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     name: next.name,
@@ -448,9 +422,7 @@ async function goToNextStop() {
             }
         );
 
-
     } catch (error) {
-
         console.error(
             "Location Update Error:",
             error
@@ -464,25 +436,20 @@ async function goToNextStop() {
 // =====================================
 
 if (startPatrolBtn) {
-
     startPatrolBtn.addEventListener(
         "click",
         startPatrol
     );
 }
 
-
 if (stopPatrolBtn) {
-
     stopPatrolBtn.addEventListener(
         "click",
         stopPatrol
     );
 }
 
-
 if (nextStopBtn) {
-
     nextStopBtn.addEventListener(
         "click",
         goToNextStop
@@ -495,19 +462,6 @@ if (nextStopBtn) {
 // =====================================
 
 showPatrolRoute();
-
 initializeMap();
-
 updateStops();
-
 getPatrolStatus();
-
-
-// =====================================
-// AUTOMATIC STATUS UPDATE
-// =====================================
-
-setInterval(
-    getPatrolStatus,
-    1000
-);
