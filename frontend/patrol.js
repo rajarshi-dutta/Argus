@@ -2,7 +2,7 @@
 // ROBODOG PATROL
 // =====================================
 
-const API_URL = "https://robodog-web.onrender.com/api/robot";
+const API_URL = "http://localhost:5050/api/robot";
 
 
 // =====================================
