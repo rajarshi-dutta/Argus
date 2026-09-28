@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from dotenv import load_dotenv
@@ -29,6 +29,25 @@ mail.init_app(app)
 # Register Blueprints
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(robot_bp, url_prefix="/api/robot")
+
+# ==========================================
+# HTTP ENDPOINTS (WEB TO SERVER)
+# ==========================================
+
+@app.route('/api/control', methods=['POST'])
+def control_robot():
+    """Receive button clicks from the web dashboard and send to Pi"""
+    data = request.json
+    action = data.get('action')
+    
+    if not action:
+        return jsonify({"error": "No action provided"}), 400
+        
+    print(f"Relaying command to Pi: {action}")
+    # Broadcast the command to the connected Raspberry Pi via WebSockets
+    socketio.emit('robot_command', {'action': action})
+    
+    return jsonify({"status": "success", "message": f"Command '{action}' sent to RoboDog"})
 
 # ==========================================
 # WEBSOCKET EVENT LISTENERS
